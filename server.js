@@ -7,6 +7,10 @@ const bodyParser = require('body-parser');
 const stripe = require('stripe'); // Importa o SDK do Stripe
 const admin = require('firebase-admin'); // Importa o SDK Admin do Firebase
 
+// NOVO: Defina um ID para o seu aplicativo que será usado no Firestore
+// Este ID criará uma coleção única para os dados do seu app no Firestore: artifacts/{APP_INSTANCE_ID}
+const APP_INSTANCE_ID = process.env.APP_INSTANCE_ID || 'infinit-daw-default'; // Use uma variável de ambiente ou um valor padrão fixo
+
 // ===================================================================
 // === CONFIGURAÇÃO DO FIREBASE ADMIN SDK ============================
 // ===================================================================
@@ -170,7 +174,9 @@ async function grantProducerAccess(email) {
         return;
     }
 
-    const userRef = db.collection('artifacts').doc(__app_id).collection('users').doc(email.replace(/\./g, '_')); // Usa __app_id e substitui '.' para o ID do documento
+    // O email é usado como ID do documento, mas '.' não são permitidos. Substituímos por '_'
+    const docId = email.replace(/\./g, '_');
+    const userRef = db.collection('artifacts').doc(APP_INSTANCE_ID).collection('users').doc(docId);
     const userData = {
         email: email,
         accessLevel: 'producer',
@@ -195,7 +201,8 @@ async function revokeProducerAccess(email) {
         return;
     }
 
-    const userRef = db.collection('artifacts').doc(__app_id).collection('users').doc(email.replace(/\./g, '_'));
+    const docId = email.replace(/\./g, '_');
+    const userRef = db.collection('artifacts').doc(APP_INSTANCE_ID).collection('users').doc(docId);
     const userData = {
         accessLevel: 'free',
         lastUpdated: admin.firestore.FieldValue.serverTimestamp()
@@ -223,10 +230,9 @@ app.post('/verificar-assinatura', async (req, res) => {
     }
 
     try {
-        // NOTA: Para IDs de documentos no Firestore, '.' não são recomendados.
-        // É uma boa prática substituí-los por algo como '_', ou usar UIDs do Firebase Auth.
-        // Aqui, estou substituindo '.' por '_' para compatibilidade.
-        const userDoc = await db.collection('artifacts').doc(__app_id).collection('users').doc(userEmail.replace(/\./g, '_')).get();
+        // Substituímos '.' por '_' para compatibilidade com IDs de documentos do Firestore
+        const docId = userEmail.replace(/\./g, '_');
+        const userDoc = await db.collection('artifacts').doc(APP_INSTANCE_ID).collection('users').doc(docId).get();
 
         if (userDoc.exists) {
             const userData = userDoc.data();
