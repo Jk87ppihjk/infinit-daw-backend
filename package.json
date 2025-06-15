@@ -12,8 +12,8 @@
         "body-parser": "^1.20.2",
         "cors": "^2.8.5",
         "express": "^4.19.2",
-        "stripe": "^16.x.x",         <-- ADICIONE ESTA LINHA (use a versão mais recente, por exemplo, 16.x.x)
-        "firebase-admin": "^12.x.x" <-- ADICIONE ESTA LINHA (use a versão mais recente, por exemplo, 12.x.x)
+        "stripe": "^16.x.x",        
+        "firebase-admin": "^12.x.x" 
       }
     }
     
