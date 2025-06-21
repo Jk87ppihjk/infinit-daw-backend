@@ -1,4 +1,4 @@
-// server.js - VERSÃO FINAL COM VERIFICAÇÃO DE WEBHOOK E FIREBASE FIRESTORE
+// server.js - VERSÃO FINAL COM VERIFICAÇÃO DE WEBHOOK, FIREBASE FIRESTORE E IA GEMINI
 
 // Importações necessárias
 const express = require('express');
@@ -6,6 +6,10 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const stripe = require('stripe'); // Importa o SDK do Stripe
 const admin = require('firebase-admin'); // Importa o SDK Admin do Firebase
+
+// =========== INÍCIO: CÓDIGO DA IA ADICIONADO ===========
+const { GoogleGenerativeAI } = require('@google/generative-ai'); // Importa o SDK do Gemini
+// =========== FIM: CÓDIGO DA IA ADICIONADO ===========
 
 // NOVO: Defina um ID para o seu aplicativo que será usado no Firestore
 // Este ID criará uma coleção única para os dados do seu app no Firestore: artifacts/{APP_INSTANCE_ID}
@@ -48,15 +52,25 @@ if (!stripeWebhookSecret) {
     process.exit(1);
 }
 
-// Inicializa o Stripe (você pode usar sua chave secreta de API aqui, mas não é estritamente necessário para webhooks,
-// que usam a chave secreta do webhook para verificação. No entanto, se você fosse fazer chamadas à API do Stripe
-// como criar customers, então precisaria inicializar o Stripe com sua chave secreta de API:
-// const stripe = require('stripe')('sua_chave_secreta_aqui');
-// Por enquanto, apenas importamos a biblioteca 'stripe' para usar o método 'webhooks.constructEvent'.
-// Para o propósito deste `server.js`, a chave secreta do webhook é suficiente para a segurança do webhook.
-// Se você precisar fazer outras operações Stripe (criar clientes, etc.), inicialize o SDK do Stripe com sua chave de API secreta aqui.
-// Ex: const stripeSdk = stripe('sk_test_sua_chave_secreta_aqui');
-// Para este exemplo, apenas a importação de 'stripe' é suficiente para a verificação.
+// =========== INÍCIO: CÓDIGO DA IA ADICIONADO ===========
+// ===================================================================
+// === CONFIGURAÇÃO DA IA GENERATIVA (GEMINI) ========================
+// ===================================================================
+// Sua chave de API do Gemini deve ser configurada como uma variável de ambiente no Render.com
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+let genAI;
+
+if (!GEMINI_API_KEY) {
+    console.warn("ALERTA: Variável de ambiente GEMINI_API_KEY não configurada. A funcionalidade de IA do EQ estará desativada.");
+} else {
+    try {
+        genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+        console.log('[Gemini] Cliente da API Gemini inicializado com sucesso.');
+    } catch (error) {
+        console.error('ERRO: Falha ao inicializar o cliente Gemini. Verifique a variável de ambiente GEMINI_API_KEY.', error);
+    }
+}
+// =========== FIM: CÓDIGO DA IA ADICIONADO ===========
 
 const app = express();
 // O Render.com atribui uma porta dinâmica, então usamos process.env.PORT
@@ -264,10 +278,88 @@ app.post('/verificar-assinatura', async (req, res) => {
 });
 
 
+// =========== INÍCIO: CÓDIGO DA IA ADICIONADO ===========
+// ===================================================================
+// === NOVO ENDPOINT PARA O EQUALIZADOR COM IA =======================
+// ===================================================================
+app.post('/api/ai-eq', async (req, res) => {
+    if (!genAI) {
+        return res.status(500).json({ message: "A funcionalidade de IA não está configurada no servidor." });
+    }
+
+    const { prompt } = req.body;
+
+    if (!prompt) {
+        return res.status(400).json({ message: "O prompt não pode ser vazio." });
+    }
+
+    try {
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+        const masterPrompt = `
+            Você é um assistente de engenharia de áudio especializado em mixagem.
+            Sua tarefa é converter um pedido de um usuário em linguagem natural para configurações de um equalizador gráfico de 10 bandas.
+
+            As bandas disponíveis e seus IDs de parâmetro são:
+            - 32 Hz (gain_32hz)
+            - 64 Hz (gain_64hz)
+            - 125 Hz (gain_125hz)
+            - 250 Hz (gain_250hz)
+            - 500 Hz (gain_500hz)
+            - 1 kHz (gain_1k)
+            - 2 kHz (gain_2k)
+            - 4 kHz (gain_4k)
+            - 8 kHz (gain_8k)
+            - 16 kHz (gain_16k)
+
+            O ganho (gain) para cada banda deve ser um número entre -18.0 e 18.0.
+
+            Analise o pedido do usuário e gere a configuração de EQ correspondente.
+
+            IMPORTANTE: Sua resposta DEVE SER APENAS um objeto JSON válido, sem nenhum texto, explicação ou markdown adicional (como \`\`\`json).
+            O JSON deve conter exatamente as 10 chaves correspondentes aos IDs das bandas.
+
+            Exemplo de pedido do usuário: "Quero um som de rádio antigo"
+            Exemplo de resposta JSON que você deve gerar:
+            {
+              "gain_32hz": -18.0,
+              "gain_64hz": -12.0,
+              "gain_125hz": -6.0,
+              "gain_250hz": 0.0,
+              "gain_500hz": 3.0,
+              "gain_1k": 6.0,
+              "gain_2k": 3.0,
+              "gain_4k": 0.0,
+              "gain_8k": -8.0,
+              "gain_16k": -18.0
+            }
+
+            Agora, processe o seguinte pedido do usuário: "${prompt}"
+        `;
+
+        const result = await model.generateContent(masterPrompt);
+        const response = await result.response;
+        const text = response.text();
+        
+        const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        const eqSettings = JSON.parse(cleanedText);
+        
+        console.log(`[AI-EQ] Prompt: "${prompt}" -> Resposta:`, eqSettings);
+        res.json(eqSettings);
+
+    } catch (error) {
+        console.error("Erro ao chamar a API Gemini:", error);
+        res.status(500).json({ message: "Ocorreu um erro ao processar seu pedido com a IA." });
+    }
+});
+// =========== FIM: CÓDIGO DA IA ADICIONADO ===========
+
+
 // Inicia o servidor
 app.listen(port, () => {
     console.log(`================================================`);
     console.log(`  Servidor da Infinit DAW rodando na porta ${port}`);
     console.log(`  Rota de Webhook esperando em /stripe-webhook`);
+    console.log(`  Endpoint de IA esperando em /api/ai-eq`);
     console.log(`================================================`);
 });
