@@ -1,8 +1,8 @@
-// server.js - VERSÃO FINAL COM CORREÇÃO DE CAMINHO DEFINITIVA
+// server.js - VERSÃO FINAL COM AJUSTE DE MIDDLEWARE BODY-PARSER
 
 const express = require('express');
 const cors = require('cors');
-const bodyParser = require('body-parser');
+const bodyParser = require('body-parser'); // <-- bodyParser importado no topo
 const stripe = require('stripe');
 const admin = require('firebase-admin');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
@@ -11,7 +11,6 @@ const path = require('path');
 const APP_INSTANCE_ID = process.env.APP_INSTANCE_ID || 'infinit-daw-default';
 
 // ... (SEU BLOCO DE CONFIGURAÇÃO DO FIREBASE, STRIPE E GEMINI FICA AQUI, IDÊNTICO AO ANTERIOR) ...
-// ===================================================================
 if (!process.env.FIREBASE_SERVICE_ACCOUNT_KEY) { console.error("ERRO: Variável de ambiente FIREBASE_SERVICE_ACCOUNT_KEY não configurada."); process.exit(1); }
 try { const serviceAccount = JSON.parse(Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_KEY, 'base64').toString('utf8')); admin.initializeApp({ credential: admin.credential.cert(serviceAccount) }); console.log('[Firebase] Firebase Admin SDK inicializado com sucesso.'); } catch (error) { console.error('ERRO: Falha ao inicializar o Firebase Admin SDK.', error); process.exit(1); }
 const db = admin.firestore();
@@ -35,7 +34,8 @@ app.post('/stripe-webhook', bodyParser.raw({type: 'application/json'}), async (r
     const sig = req.headers['stripe-signature']; let event; try { event = stripe.webhooks.constructEvent(req.body, sig, stripeWebhookSecret); console.log('[Webhook] Evento Stripe recebido e assinado com sucesso.'); } catch (err) { console.error(`ERRO: Falha na verificação da assinatura do webhook: ${err.message}`); return res.status(400).send(`Webhook Error: ${err.message}`); } if (event.type === 'checkout.session.completed') { const session = event.data.object; const userEmail = session.customer_details.email; if (userEmail) { console.log(`[Webhook] Pagamento bem-sucedido para o email: ${userEmail}`); await grantProducerAccess(userEmail); } else { console.warn('[Webhook] Evento checkout.session.completed sem email de cliente.'); } } else if (event.type === 'customer.subscription.updated') { const subscription = event.data.object; const customerId = subscription.customer; const userEmail = subscription.metadata && subscription.metadata.userEmail ? subscription.metadata.userEmail : null; if (userEmail) { console.log(`[Webhook] Assinatura atualizada para o email: ${userEmail}. Status: ${subscription.status}`); if (subscription.status === 'active' || subscription.status === 'trialing') { await grantProducerAccess(userEmail); } else { await revokeProducerAccess(userEmail); } } else { console.warn(`[Webhook] Evento customer.subscription.updated sem email de cliente. Customer ID: ${customerId}`); } } else if (event.type === 'customer.subscription.deleted') { const subscription = event.data.object; const userEmail = subscription.metadata && subscription.metadata.userEmail ? subscription.metadata.userEmail : null; if (userEmail) { console.log(`[Webhook] Assinatura DELETADA para o email: ${userEmail}.`); await revokeProducerAccess(userEmail); } else { console.warn(`[Webhook] Evento customer.subscription.deleted sem email de cliente. Customer ID: ${subscription.customer}`); } } else if (event.type === 'invoice.payment_succeeded') { const invoice = event.data.object; const userEmail = invoice.customer_email; if (userEmail) { console.log(`[Webhook] Pagamento de fatura bem-sucedido para o email: ${userEmail}.`); await grantProducerAccess(userEmail); } else { console.warn(`[Webhook] Evento invoice.payment_succeeded sem email de cliente. Invoice ID: ${invoice.id}`); } } else { console.log(`[Webhook] Evento Stripe não processado: ${event.type}`); } res.json({ received: true });
 });
 
-app.use(express.json());
+// CORRIGIDO: Voltando a usar bodyParser.json() para consistência
+app.use(bodyParser.json());
 
 app.post('/verificar-assinatura', async (req, res) => {
     // ... (CÓDIGO DE VERIFICAR ASSINATURA IDÊNTICO AO ANTERIOR) ...
@@ -54,10 +54,7 @@ async function revokeProducerAccess(email) { if (!email) { console.warn("[Firest
 // ===================================================================
 // === SERVIR ARQUIVOS ESTÁTICOS E ROTA CATCH-ALL =====================
 // ===================================================================
-// CORRIGIDO: Servir os arquivos estáticos da pasta 'public_html' que está na raiz do projeto.
 app.use(express.static(path.join(__dirname, 'public_html')));
-
-// CORRIGIDO: Rota 'catch-all'. Apanha qualquer requisição GET não correspondida e envia o index.html de dentro da pasta 'public_html'.
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public_html', 'index.html'));
 });
