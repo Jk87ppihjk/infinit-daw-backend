@@ -1,4 +1,4 @@
-// server.js - VERSÃO FINAL COM CORREÇÃO DE CAMINHO, ROTEAMENTO EXPLÍCITO, WEBHOOK, FIREBASE E IA GEMINI
+// server.js - VERSÃO FINAL COM CORREÇÃO DE CAMINHO DEFINITIVA
 
 const express = require('express');
 const cors = require('cors');
@@ -54,19 +54,19 @@ async function revokeProducerAccess(email) { if (!email) { console.warn("[Firest
 // ===================================================================
 // === SERVIR ARQUIVOS ESTÁTICOS E ROTA CATCH-ALL =====================
 // ===================================================================
-// CORRIGIDO: Como server.js está DENTRO de public_html, o diretório estático é o próprio diretório atual (__dirname)
-app.use(express.static(__dirname));
+// CORRIGIDO: Servir os arquivos estáticos da pasta 'public_html' que está na raiz do projeto.
+app.use(express.static(path.join(__dirname, 'public_html')));
 
-// CORRIGIDO: Rota 'catch-all'. Apanha qualquer requisição GET não correspondida e envia o index.html do diretório atual.
+// CORRIGIDO: Rota 'catch-all'. Apanha qualquer requisição GET não correspondida e envia o index.html de dentro da pasta 'public_html'.
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile(path.join(__dirname, 'public_html', 'index.html'));
 });
 
 // Inicia o servidor
 app.listen(port, () => {
     console.log(`================================================`);
     console.log(`  Servidor da Infinit DAW rodando na porta ${port}`);
-    console.log(`  Servindo arquivos estáticos de: ${__dirname}`);
+    console.log(`  Servindo arquivos estáticos de: ${path.join(__dirname, 'public_html')}`);
     console.log(`  Rotas de API prontas.`);
     console.log(`================================================`);
 });
