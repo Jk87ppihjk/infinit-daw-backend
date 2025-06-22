@@ -4,8 +4,9 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY); // Mantido como estava no seu original
-const admin = require('firebase-admin'); // Mantido como estava no seu original
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+const admin = require('firebase-admin');
 
 // Certifique-se de que a sua variável de ambiente FIREBASE_CONFIG está definida
 // e contém o JSON de configuração do Firebase.
@@ -18,12 +19,12 @@ if (process.env.FIREBASE_CONFIG) {
     });
     console.log('Firebase Admin SDK inicializado com sucesso.');
   } catch (error) {
-    console.error('Erro ao inicializar Firebase Admin SDK:', error);
+    console.error('Erro ao inicializar Firebase Admin SDK: Verifique se FIREBASE_CONFIG é um JSON válido.', error);
     // Em produção, você pode querer encerrar o aplicativo se a inicialização do Firebase falhar
     // process.exit(1);
   }
 } else {
-  console.warn('Variável de ambiente FIREBASE_CONFIG não encontrada. Firebase Admin SDK não inicializado.');
+  console.warn('Variável de ambiente FIREBASE_CONFIG não encontrada. Firebase Admin SDK não inicializado. Configure-a no Render.com.');
 }
 
 
@@ -36,6 +37,20 @@ const port = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
+
+// Defina o caminho para a raiz do seu projeto (onde 'daww' e 'src' estão)
+// __dirname é /opt/render/project/src, então '../' leva para /opt/render/project/
+const PROJECT_ROOT = path.join(__dirname, '..');
+
+// --- DIAGNÓSTICO DE CAMINHOS ---
+console.log(`[DIAGNÓSTICO] __dirname: ${__dirname}`);
+console.log(`[DIAGNÓSTICO] PROJECT_ROOT: ${PROJECT_ROOT}`);
+const staticFilesPath = path.join(PROJECT_ROOT, 'daww');
+const indexPath = path.join(PROJECT_ROOT, 'daww', 'index.html');
+console.log(`[DIAGNÓSTICO] Caminho para arquivos estáticos (express.static): ${staticFilesPath}`);
+console.log(`[DIAGNÓSTICO] Caminho para index.html (app.get('/')): ${indexPath}`);
+// --- FIM DO DIAGNÓSTICO ---
+
 
 // Rota para lidar com a criação de sessões de checkout do Stripe
 app.post('/create-checkout-session', async (req, res) => {
@@ -183,18 +198,25 @@ app.post('/webhook', bodyParser.raw({type: 'application/json'}), async (req, res
 });
 
 
-// Sirva os arquivos estáticos da sua DAW (frontend)
-// A pasta 'daww' deve estar na raiz do seu projeto infinit-daw-backend
-// __dirname se refere a 'src', então '../daww' vai para a raiz do projeto e depois para 'daww'
-app.use(express.static(path.join(__dirname, '../daww')));
+// Sirva os arquivos estáticos da sua DAW usando o caminho mais explícito
+app.use(express.static(staticFilesPath));
 
 // Rota principal para servir o index.html da sua DAW
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../daww/index.html'));
+    res.sendFile(indexPath, (err) => {
+        if (err) {
+            console.error(`Erro ao tentar servir index.html de ${indexPath}:`, err);
+            // Se o erro for ENOENT (arquivo não encontrado), forneça uma mensagem mais amigável ao usuário.
+            if (err.code === 'ENOENT') {
+                res.status(404).send('Página inicial (index.html) não encontrada. Por favor, verifique se a pasta `daww` e seus conteúdos estão no seu repositório Git e se foram implantados corretamente.');
+            } else {
+                res.status(500).send('Erro interno do servidor ao carregar a página principal.');
+            }
+        }
+    });
 });
 
 // Use as rotas de IA, prefixando-as com '/api/ai'
-// Isso significa que a rota '/process-eq-ai' em ai_routes.js será acessível via /api/ai/process-eq-ai
 app.use('/api/ai', aiRoutes);
 
 // Início do servidor
