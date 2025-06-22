@@ -1,273 +1,203 @@
-// server.js - VERSÃO FINAL COM VERIFICAÇÃO DE WEBHOOK E FIREBASE FIRESTORE
+// src/server.js
 
-// Importações necessárias
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const stripe = require('stripe'); // Importa o SDK do Stripe
-const admin = require('firebase-admin'); // Importa o SDK Admin do Firebase
+const path = require('path');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY); // Mantido como estava no seu original
+const admin = require('firebase-admin'); // Mantido como estava no seu original
 
-// NOVO: Defina um ID para o seu aplicativo que será usado no Firestore
-// Este ID criará uma coleção única para os dados do seu app no Firestore: artifacts/{APP_INSTANCE_ID}
-const APP_INSTANCE_ID = process.env.APP_INSTANCE_ID || 'infinit-daw-default'; // Use uma variável de ambiente ou um valor padrão fixo
-
-// ===================================================================
-// === CONFIGURAÇÃO DO FIREBASE ADMIN SDK ============================
-// ===================================================================
-// As credenciais para o Firebase Admin SDK são obtidas de uma variável de ambiente.
-// VOCÊ PRECISARÁ CONFIGURAR 'FIREBASE_SERVICE_ACCOUNT_KEY' NO RENDER.COM
-// com o conteúdo JSON do seu arquivo de chave de conta de serviço do Firebase.
-// Esta é a forma SEGURA de fazer isso em produção.
-if (!process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-    console.error("ERRO: Variável de ambiente FIREBASE_SERVICE_ACCOUNT_KEY não configurada.");
-    process.exit(1); // Encerra o processo se a chave não estiver presente
-}
-
-try {
-    const serviceAccount = JSON.parse(Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_KEY, 'base64').toString('utf8'));
-
+// Certifique-se de que a sua variável de ambiente FIREBASE_CONFIG está definida
+// e contém o JSON de configuração do Firebase.
+// Ex: no Render.com, adicione FIREBASE_CONFIG com o conteúdo do seu serviceAccountKey.json
+if (process.env.FIREBASE_CONFIG) {
+  try {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_CONFIG);
     admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
+      credential: admin.credential.cert(serviceAccount)
     });
-    console.log('[Firebase] Firebase Admin SDK inicializado com sucesso.');
-} catch (error) {
-    console.error('ERRO: Falha ao inicializar o Firebase Admin SDK. Verifique a variável de ambiente FIREBASE_SERVICE_ACCOUNT_KEY.', error);
-    process.exit(1);
+    console.log('Firebase Admin SDK inicializado com sucesso.');
+  } catch (error) {
+    console.error('Erro ao inicializar Firebase Admin SDK:', error);
+    // Em produção, você pode querer encerrar o aplicativo se a inicialização do Firebase falhar
+    // process.exit(1);
+  }
+} else {
+  console.warn('Variável de ambiente FIREBASE_CONFIG não encontrada. Firebase Admin SDK não inicializado.');
 }
 
-const db = admin.firestore(); // Obtém uma instância do Firestore
 
-// ===================================================================
-// === CONFIGURAÇÃO DO STRIPE ========================================
-// ===================================================================
-// A chave secreta do webhook do Stripe deve ser configurada como uma variável de ambiente no Render.com
-const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-if (!stripeWebhookSecret) {
-    console.error("ERRO: Variável de ambiente STRIPE_WEBHOOK_SECRET não configurada.");
-    process.exit(1);
-}
-
-// Inicializa o Stripe (você pode usar sua chave secreta de API aqui, mas não é estritamente necessário para webhooks,
-// que usam a chave secreta do webhook para verificação. No entanto, se você fosse fazer chamadas à API do Stripe
-// como criar customers, então precisaria inicializar o Stripe com sua chave secreta de API:
-// const stripe = require('stripe')('sua_chave_secreta_aqui');
-// Por enquanto, apenas importamos a biblioteca 'stripe' para usar o método 'webhooks.constructEvent'.
-// Para o propósito deste `server.js`, a chave secreta do webhook é suficiente para a segurança do webhook.
-// Se você precisar fazer outras operações Stripe (criar clientes, etc.), inicialize o SDK do Stripe com sua chave de API secreta aqui.
-// Ex: const stripeSdk = stripe('sk_test_sua_chave_secreta_aqui');
-// Para este exemplo, apenas a importação de 'stripe' é suficiente para a verificação.
+// Importe o novo arquivo de rotas de IA
+const aiRoutes = require('./routes/ai_routes');
 
 const app = express();
-// O Render.com atribui uma porta dinâmica, então usamos process.env.PORT
 const port = process.env.PORT || 3000;
 
-app.use(cors()); // Permite requisições de diferentes origens
-
-// ===================================================================
-// === ROTA DO WEBHOOK DO STRIPE =====================================
-// ===================================================================
-// Usamos body-parser.raw para obter o corpo da requisição bruta, necessário para a verificação do Stripe.
-// Esta rota deve vir ANTES de app.use(bodyParser.json());
-app.post('/stripe-webhook', bodyParser.raw({type: 'application/json'}), async (req, res) => {
-    const sig = req.headers['stripe-signature']; // Assinatura do Stripe
-    let event;
-
-    try {
-        // MUITO IMPORTANTE: Verificação da assinatura do webhook!
-        // Isso garante que a requisição veio mesmo do Stripe e não foi adulterada.
-        event = stripe.webhooks.constructEvent(req.body, sig, stripeWebhookSecret);
-        console.log('[Webhook] Evento Stripe recebido e assinado com sucesso.');
-    } catch (err) {
-        console.error(`ERRO: Falha na verificação da assinatura do webhook: ${err.message}`);
-        return res.status(400).send(`Webhook Error: ${err.message}`);
-    }
-
-    // Lidando com o evento 'checkout.session.completed'
-    if (event.type === 'checkout.session.completed') {
-        const session = event.data.object;
-        const userEmail = session.customer_details.email;
-
-        if (userEmail) {
-            console.log(`[Webhook] Pagamento bem-sucedido para o email: ${userEmail}`);
-            await grantProducerAccess(userEmail); // Chama nossa função assíncrona para liberar o acesso no Firestore
-        } else {
-            console.warn('[Webhook] Evento checkout.session.completed sem email de cliente.');
-        }
-    }
-    // Adicione outros eventos de webhook conforme necessário (ex: customer.subscription.updated, customer.subscription.deleted)
-    // Exemplo para 'customer.subscription.updated':
-    else if (event.type === 'customer.subscription.updated') {
-        const subscription = event.data.object;
-        const customerId = subscription.customer; // ID do cliente Stripe
-
-        // Em um cenário real, você buscaria o email do usuário associado a este customerId no Firestore
-        // Para simplificar, vamos assumir que você tem uma forma de mapear customerId para email ou que o email
-        // já está no objeto subscription se for um checkout.session.completed anterior.
-        // Ou você pode buscar o Customer do Stripe com stripeSdk.customers.retrieve(customerId)
-        // Para este exemplo, vamos assumir que a informação necessária para o email está disponível ou pode ser recuperada.
-        
-        // Exemplo: se o email estiver no metadata da assinatura ou da sessão de checkout inicial
-        const userEmail = subscription.metadata && subscription.metadata.userEmail ? subscription.metadata.userEmail : null;
-
-        if (userEmail) {
-            console.log(`[Webhook] Assinatura atualizada para o email: ${userEmail}. Status: ${subscription.status}`);
-            if (subscription.status === 'active' || subscription.status === 'trialing') {
-                await grantProducerAccess(userEmail);
-            } else {
-                await revokeProducerAccess(userEmail); // Implementar revokeProducerAccess
-            }
-        } else {
-            console.warn(`[Webhook] Evento customer.subscription.updated sem email de cliente. Customer ID: ${customerId}`);
-        }
-    }
-    // Exemplo para 'customer.subscription.deleted':
-    else if (event.type === 'customer.subscription.deleted') {
-        const subscription = event.data.object;
-        const userEmail = subscription.metadata && subscription.metadata.userEmail ? subscription.metadata.userEmail : null;
-        
-        if (userEmail) {
-            console.log(`[Webhook] Assinatura DELETADA para o email: ${userEmail}.`);
-            await revokeProducerAccess(userEmail); // Implementar revokeProducerAccess
-        } else {
-            console.warn(`[Webhook] Evento customer.subscription.deleted sem email de cliente. Customer ID: ${subscription.customer}`);
-        }
-    }
-    // Exemplo para 'invoice.payment_succeeded':
-    else if (event.type === 'invoice.payment_succeeded') {
-        const invoice = event.data.object;
-        const userEmail = invoice.customer_email; // O email pode estar diretamente na fatura
-        if (userEmail) {
-            console.log(`[Webhook] Pagamento de fatura bem-sucedido para o email: ${userEmail}.`);
-            await grantProducerAccess(userEmail);
-        } else {
-            console.warn(`[Webhook] Evento invoice.payment_succeeded sem email de cliente. Invoice ID: ${invoice.id}`);
-        }
-    }
-    // Adicione mais `else if` para outros tipos de evento que você precisa lidar.
-    else {
-        console.log(`[Webhook] Evento Stripe não processado: ${event.type}`);
-    }
-    
-    // Responde ao Stripe para confirmar o recebimento do evento
-    res.json({ received: true });
-});
-
-
-// O resto das requisições usará o bodyParser.json normal.
-// Esta linha deve vir DEPOIS da rota do webhook com bodyParser.raw
+// Middleware
+app.use(cors());
 app.use(bodyParser.json());
 
-/**
- * ===================================================================
- * === FUNÇÕES DE MANIPULAÇÃO DE USUÁRIOS NO FIRESTORE ===============
- * ===================================================================
- */
+// Rota para lidar com a criação de sessões de checkout do Stripe
+app.post('/create-checkout-session', async (req, res) => {
+  const { priceId, userId, userName, userEmail } = req.body;
 
-/**
- * Concede ou atualiza o acesso 'producer' para um usuário no Firestore.
- * @param {string} email O email do usuário.
- */
-async function grantProducerAccess(email) {
-    if (!email) {
-        console.warn("[Firestore] Tentativa de conceder acesso sem email.");
-        return;
-    }
-
-    // O email é usado como ID do documento, mas '.' não são permitidos. Substituímos por '_'
-    const docId = email.replace(/\./g, '_');
-    const userRef = db.collection('artifacts').doc(APP_INSTANCE_ID).collection('users').doc(docId);
-    const userData = {
-        email: email,
-        accessLevel: 'producer',
-        lastUpdated: admin.firestore.FieldValue.serverTimestamp() // Carimbo de data/hora do servidor
-    };
-
-    try {
-        await userRef.set(userData, { merge: true }); // 'merge: true' atualiza ou cria o documento
-        console.log(`[Firestore] Acesso 'producer' concedido/atualizado para o email: ${email}`);
-    } catch (error) {
-        console.error(`[Firestore] ERRO ao conceder acesso 'producer' para ${email}:`, error);
-    }
-}
-
-/**
- * Revoga o acesso 'producer' de um usuário no Firestore, alterando para 'free'.
- * @param {string} email O email do usuário.
- */
-async function revokeProducerAccess(email) {
-    if (!email) {
-        console.warn("[Firestore] Tentativa de revogar acesso sem email.");
-        return;
-    }
-
-    const docId = email.replace(/\./g, '_');
-    const userRef = db.collection('artifacts').doc(APP_INSTANCE_ID).collection('users').doc(docId);
-    const userData = {
-        accessLevel: 'free',
-        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-    };
-
-    try {
-        await userRef.set(userData, { merge: true }); // Atualiza o documento, mantendo outros campos
-        console.log(`[Firestore] Acesso do email: ${email} revogado para 'free'.`);
-    } catch (error) {
-        console.error(`[Firestore] ERRO ao revogar acesso para ${email}:`, error);
-    }
-}
-
-
-// Endpoint para verificação de assinatura (agora usando Firestore)
-app.post('/verificar-assinatura', async (req, res) => {
-    const { userEmail } = req.body;
-    console.log(`[Servidor] Recebida verificação para o email: ${userEmail}`);
-
-    if (!userEmail) {
-        return res.status(400).json({
-            message: "Email do usuário não fornecido.",
-            accessLevel: "free"
-        });
-    }
-
-    try {
-        // Substituímos '.' por '_' para compatibilidade com IDs de documentos do Firestore
-        const docId = userEmail.replace(/\./g, '_');
-        const userDoc = await db.collection('artifacts').doc(APP_INSTANCE_ID).collection('users').doc(docId).get();
-
-        if (userDoc.exists) {
-            const userData = userDoc.data();
-            if (userData.accessLevel === 'producer') {
-                console.log(`[Servidor] Usuário ${userEmail} encontrado no Firestore. Status: ${userData.accessLevel}`);
-                return res.json({
-                    email: userEmail,
-                    status: 'ativo',
-                    accessLevel: userData.accessLevel
-                });
-            }
+  try {
+    // Busca informações do usuário no Firestore, se userId for fornecido
+    let customerId;
+    if (userId) {
+      const userRef = admin.firestore().collection('users').doc(userId);
+      const userDoc = await userRef.get();
+      if (userDoc.exists) {
+        const userData = userDoc.data();
+        if (userData.stripeCustomerId) {
+          customerId = userData.stripeCustomerId;
         }
-        // Se não existir, ou se o accessLevel não for 'producer'
-        console.log(`[Servidor] Usuário ${userEmail} não encontrado ou sem assinatura 'producer'. Concedendo acesso 'free'.`);
-        res.json({
-            email: userEmail,
-            status: 'inativo',
-            accessLevel: 'free'
-        });
-
-    } catch (error) {
-        console.error(`[Servidor] ERRO ao verificar assinatura para ${userEmail} no Firestore:`, error);
-        // Em caso de erro, por segurança, conceda acesso 'free' e registre o erro.
-        res.status(500).json({
-            message: "Erro interno do servidor ao verificar assinatura.",
-            accessLevel: "free"
-        });
+      }
     }
+
+    // Se não houver customerId, crie um novo cliente Stripe
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: userEmail,
+        name: userName,
+        metadata: {
+          firebaseUid: userId // Armazena o UID do Firebase para referência futura
+        }
+      });
+      customerId = customer.id;
+
+      // Salva o Stripe Customer ID no Firestore para futuras transações
+      if (userId) {
+        await admin.firestore().collection('users').doc(userId).set(
+          { stripeCustomerId: customerId },
+          { merge: true }
+        );
+      }
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId, // Usa o customerId existente ou recém-criado
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+      ],
+      mode: 'subscription',
+      success_url: 'https://infinitdaw.com/success?session_id={CHECKOUT_SESSION_ID}',
+      cancel_url: 'https://infinitdaw.com/cancel',
+    });
+
+    res.json({ url: session.url });
+  } catch (error) {
+    console.error('Erro ao criar sessão de checkout:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 
-// Inicia o servidor
+// Rota para lidar com webhooks do Stripe
+app.post('/webhook', bodyParser.raw({type: 'application/json'}), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    console.error(`Webhook Error: ${err.message}`);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  // Lide com o evento
+  switch (event.type) {
+    case 'checkout.session.completed':
+      const session = event.data.object;
+      console.log('Checkout Session Completed:', session);
+      // Aqui você pode provisionar o acesso ao produto/serviço
+      // ou atualizar o status da assinatura no seu banco de dados
+      // Ex: Obter customer.id e o subscription.id e associar ao usuário
+      const customerId = session.customer;
+      const subscriptionId = session.subscription;
+
+      if (customerId && subscriptionId) {
+        // Encontre o usuário no Firestore pelo stripeCustomerId
+        const usersRef = admin.firestore().collection('users');
+        const querySnapshot = await usersRef.where('stripeCustomerId', '==', customerId).get();
+
+        if (!querySnapshot.empty) {
+          const userDoc = querySnapshot.docs[0];
+          await userDoc.ref.update({
+            hasProAccess: true, // Ou o nome do seu campo de acesso premium
+            stripeSubscriptionId: subscriptionId,
+            subscriptionStatus: 'active',
+            lastPurchaseDate: admin.firestore.FieldValue.serverTimestamp()
+          });
+          console.log(`Usuário ${userDoc.id} atualizado com acesso Pro e assinatura Stripe.`);
+        } else {
+          console.warn(`Nenhum usuário encontrado com stripeCustomerId: ${customerId}`);
+        }
+      }
+      break;
+    case 'customer.subscription.updated':
+        const subscriptionUpdated = event.data.object;
+        console.log('Subscription Updated:', subscriptionUpdated.id, 'Status:', subscriptionUpdated.status);
+        // Atualize o status da assinatura no seu banco de dados
+        // Você pode ter diferentes status como 'active', 'past_due', 'canceled', etc.
+        const updatedCustomerId = subscriptionUpdated.customer;
+        const usersRefUpdated = admin.firestore().collection('users');
+        const querySnapshotUpdated = await usersRefUpdated.where('stripeCustomerId', '==', updatedCustomerId).get();
+
+        if (!querySnapshotUpdated.empty) {
+            const userDoc = querySnapshotUpdated.docs[0];
+            await userDoc.ref.update({
+                subscriptionStatus: subscriptionUpdated.status,
+                hasProAccess: subscriptionUpdated.status === 'active' || subscriptionUpdated.status === 'trialing'
+            });
+            console.log(`Status da assinatura do usuário ${userDoc.id} atualizado para ${subscriptionUpdated.status}.`);
+        }
+        break;
+    case 'customer.subscription.deleted':
+        const subscriptionDeleted = event.data.object;
+        console.log('Subscription Deleted:', subscriptionDeleted.id);
+        // Remova o acesso ao produto/serviço quando a assinatura é cancelada
+        const deletedCustomerId = subscriptionDeleted.customer;
+        const usersRefDeleted = admin.firestore().collection('users');
+        const querySnapshotDeleted = await usersRefDeleted.where('stripeCustomerId', '==', deletedCustomerId).get();
+
+        if (!querySnapshotDeleted.empty) {
+            const userDoc = querySnapshotDeleted.docs[0];
+            await userDoc.ref.update({
+                hasProAccess: false,
+                subscriptionStatus: 'canceled',
+                stripeSubscriptionId: admin.firestore.FieldValue.delete() // Remove o ID da assinatura se não for mais relevante
+            });
+            console.log(`Acesso Pro do usuário ${userDoc.id} removido devido ao cancelamento da assinatura.`);
+        }
+        break;
+    // ... lidar com outros tipos de eventos conforme necessário
+    default:
+      console.log(`Evento Stripe não tratado: ${event.type}`);
+  }
+
+  res.json({ received: true });
+});
+
+
+// Sirva os arquivos estáticos da sua DAW (frontend)
+// A pasta 'daww' deve estar na raiz do seu projeto infinit-daw-backend
+// __dirname se refere a 'src', então '../daww' vai para a raiz do projeto e depois para 'daww'
+app.use(express.static(path.join(__dirname, '../daww')));
+
+// Rota principal para servir o index.html da sua DAW
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../daww/index.html'));
+});
+
+// Use as rotas de IA, prefixando-as com '/api/ai'
+// Isso significa que a rota '/process-eq-ai' em ai_routes.js será acessível via /api/ai/process-eq-ai
+app.use('/api/ai', aiRoutes);
+
+// Início do servidor
 app.listen(port, () => {
-    console.log(`================================================`);
-    console.log(`  Servidor da Infinit DAW rodando na porta ${port}`);
-    console.log(`  Rota de Webhook esperando em /stripe-webhook`);
-    console.log(`================================================`);
+    console.log(`Servidor rodando na porta ${port}`);
 });
