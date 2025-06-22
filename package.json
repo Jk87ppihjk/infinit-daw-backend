@@ -11,9 +11,6 @@
   "dependencies": {
     "body-parser": "^1.20.2",
     "cors": "^2.8.5",
-    "express": "^4.19.2",
-    "stripe": "^16.x.x",
-    "firebase-admin": "^12.x.x",
-    "@google/generative-ai": "^0.14.0"
+    "express": "^4.19.2"
   }
 }
