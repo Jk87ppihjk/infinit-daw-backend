@@ -1,0 +1,30 @@
+{
+  "id": "precision_eq",
+  "name": "EQ Gráfico Avançado",
+  "description": "EQ de 4 bandas com curva visual e analisador de espectro em tempo real.",
+  "category": "Filtro",
+  "premium": true,
+  "ui": {
+    "htmlPath": "effects/precision_eq/precision_eq.html",
+    "jsPath": "effects/precision_eq/precision_eq.js"
+  },
+  "parameters": [
+    { "id": "band1_type", "type": "hidden", "defaultValue": "lowshelf" },
+    { "id": "band1_freq", "name": "Frequência (Hz)", "type": "slider", "min": 20, "max": 1000, "step": 1, "defaultValue": 150 },
+    { "id": "band1_gain", "name": "Ganho (dB)", "type": "slider", "min": -24, "max": 24, "step": 0.1, "defaultValue": 0 },
+    
+    { "id": "band2_type", "type": "hidden", "defaultValue": "peaking" },
+    { "id": "band2_freq", "name": "Frequência (Hz)", "type": "slider", "min": 200, "max": 3000, "step": 10, "defaultValue": 800 },
+    { "id": "band2_gain", "name": "Ganho (dB)", "type": "slider", "min": -24, "max": 24, "step": 0.1, "defaultValue": 0 },
+    { "id": "band2_q", "name": "Fator Q", "type": "slider", "min": 0.1, "max": 18, "step": 0.1, "defaultValue": 1.41 },
+
+    { "id": "band3_type", "type": "hidden", "defaultValue": "peaking" },
+    { "id": "band3_freq", "name": "Frequência (Hz)", "type": "slider", "min": 800, "max": 12000, "step": 10, "defaultValue": 3500 },
+    { "id": "band3_gain", "name": "Ganho (dB)", "type": "slider", "min": -24, "max": 24, "step": 0.1, "defaultValue": 0 },
+    { "id": "band3_q", "name": "Fator Q", "type": "slider", "min": 0.1, "max": 18, "step": 0.1, "defaultValue": 1.41 },
+
+    { "id": "band4_type", "type": "hidden", "defaultValue": "highshelf" },
+    { "id": "band4_freq", "name": "Frequência (Hz)", "type": "slider", "min": 1000, "max": 20000, "step": 100, "defaultValue": 8000 },
+    { "id": "band4_gain", "name": "Ganho (dB)", "type": "slider", "min": -24, "max": 24, "step": 0.1, "defaultValue": 0 }
+  ]
+}

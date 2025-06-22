@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinit DAW - Login</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        body { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #1a1a2e; }
+        
+        .hidden { display: none !important; }
+        .loader-container {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #1a1a2e;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            gap: 20px; z-index: 200; color: #fff;
+        }
+        .spinner {
+            width: 56px; height: 56px;
+            border: 5px solid #0f3460;
+            border-bottom-color: #e94560;
+            border-radius: 50%; display: inline-block;
+            animation: rotation 1s linear infinite;
+        }
+        @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .login-container { background-color: #16213e; padding: 40px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); width: 100%; max-width: 400px; text-align: center; color: #e94560; }
+        .login-container h2 { margin-bottom: 20px; font-size: 2.5rem; }
+        .input-group { margin-bottom: 20px; }
+        .input-group input { width: 100%; padding: 15px; border: 2px solid #0f3460; border-radius: 8px; background-color: #1a1a2e; color: #fff; font-size: 1rem; outline: none; transition: border-color 0.3s; }
+        .input-group input::placeholder { color: #888; }
+        .input-group input:focus { border-color: #e94560; }
+        .btn { width: 100%; padding: 15px; border: none; border-radius: 8px; background-color: #e94560; color: #fff; font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: background-color 0.3s; margin-top: 10px; }
+        .btn:hover { background-color: #c7304a; }
+        .google-btn { background-color: #fff; color: #333; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .google-btn img { width: 20px; height: 20px; }
+        .divider { margin: 30px 0; display: flex; align-items: center; text-align: center; color: #a9a9a9; }
+        .divider::before, .divider::after { content: ''; flex: 1; border-bottom: 1px solid #a9a9a9; }
+        .divider:not(:empty)::before { margin-right: .25em; }
+        .divider:not(:empty)::after { margin-left: .25em; }
+        .message { margin-top: 20px; color: #e94560; font-weight: 500; min-height: 20px; }
+        .dev-link { display: block; margin-top: 25px; color: #a9a9a9; font-size: 0.9rem; text-decoration: none; transition: color 0.3s; }
+        .dev-link:hover { color: #fff; }
+    </style>
+</head>
+<body>
+    <div id="loader" class="loader-container">
+        <div class="spinner"></div>
+        <p>Verificando sessão...</p>
+    </div>
+
+    <div id="login-container" class="login-container hidden">
+        <h2>Infinit DAW</h2>
+        <div class="input-group">
+            <input type="email" id="email" placeholder="Seu email" required>
+        </div>
+        <div class="input-group">
+            <input type="password" id="password" placeholder="Sua senha (mínimo 6 caracteres)" required>
+        </div>
+        <button class="btn" onclick="signInWithEmail()">Entrar</button>
+        <button class="btn" onclick="createUserWithEmail()">Cadastrar</button>
+        <div class="divider">ou</div>
+        <button class="btn google-btn" onclick="signInWithGoogle()">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Logo do Google">
+            Continuar com o Google
+        </button>
+        <p class="message" id="message"></p>
+        <a href="compras.html?dev=true" class="dev-link">Entrar como Desenvolvedor (sem login)</a>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-auth-compat.js"></script>
+    <script>
+        // ==========================================================
+        // ===== CONFIGURAÇÃO DO FIREBASE (ATUALIZE AQUI!) ==========
+        // ==========================================================
+        const firebaseConfig = {
+  apiKey: "AIzaSyDmf1rOk04ilQgHsoyGy90gg7VUm8O5V0g",
+  authDomain: "meuprimeirosite-70348.firebaseapp.com",
+  projectId: "meuprimeirosite-70348",
+  storageBucket: "meuprimeirosite-70348.firebasestorage.app",
+  messagingSenderId: "297062996692",
+  appId: "1:297062996692:web:2863162f2f7c34ebdaf941",
+  measurementId: "G-BZPEX75PHF"
+};
+        
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        
+        const auth = firebase.auth();
+        const googleProvider = new firebase.auth.GoogleAuthProvider();
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const messageElement = document.getElementById('message');
+        
+        const loader = document.getElementById('loader');
+        const loginContainer = document.getElementById('login-container');
+        
+        // Listener principal que sempre verifica o estado do usuário
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                // Se houver um usuário, redireciona. Simples e direto.
+                window.location.href = "compras.html";
+            } else {
+                // Se não houver, mostra o formulário de login.
+                loader.classList.add('hidden');
+                loginContainer.classList.remove('hidden');
+            }
+        });
+
+        // Usando Popup em vez de Redirect para Google
+        function signInWithGoogle() {
+            console.log("LOGIN.HTML: signInWithGoogle chamado. Usando o método de POPUP.");
+            auth.signInWithPopup(googleProvider)
+                .then((result) => {
+                    // O login com popup foi bem-sucedido.
+                    // O 'onAuthStateChanged' acima será acionado automaticamente
+                    // e cuidará do redirecionamento.
+                    console.log("LOGIN.HTML: Popup do Google logado com sucesso para:", result.user.email);
+                })
+                .catch((error) => {
+                    // Lida com erros do popup (ex: usuário fechou a janela).
+                    console.error("LOGIN.HTML: Erro no signInWithPopup:", error);
+                    messageElement.textContent = "Erro durante o login com Google: " + error.message;
+                });
+        }
+
+        // Funções de login/cadastro com email
+        function createUserWithEmail() {
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            if (email && password) {
+                auth.createUserWithEmailAndPassword(email, password)
+                    .then((userCredential) => {
+                        const user = userCredential.user;
+                        const displayName = email.split('@')[0];
+                        return user.updateProfile({ displayName: displayName })
+                            .then(() => {
+                                messageElement.textContent = `Conta para "${displayName}" criada! Faça o login.`;
+                            });
+                    })
+                    .catch((error) => {
+                        if (error.code === 'auth/weak-password') {
+                            messageElement.textContent = 'Erro: A senha deve ter no mínimo 6 caracteres.';
+                        } else if (error.code === 'auth/email-already-in-use') {
+                            messageElement.textContent = 'Erro: Este email já foi cadastrado.';
+                        } else {
+                            messageElement.textContent = `Erro: ${error.message}`;
+                        }
+                    });
+            } else {
+                messageElement.textContent = "Por favor, preencha email e senha para cadastrar.";
+            }
+        }
+
+        function signInWithEmail() {
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            if (email && password) {
+                auth.signInWithEmailAndPassword(email, password)
+                    .catch(() => {
+                        messageElement.textContent = "Erro: Email ou senha inválidos.";
+                    });
+            } else {
+                messageElement.textContent = "Por favor, preencha email e senha para entrar.";
+            }
+        }
+    </script>
+</body>
+</html>

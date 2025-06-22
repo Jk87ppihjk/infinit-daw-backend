@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinit DAW - Plano de Assinatura</title>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+        :root { /* --- Adicionado para o loader --- */
+            --dark-blue-bg: #1a1a2e;
+            --pink-accent: #e94560;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        body { background: var(--dark-blue-bg); color: #fff; }
+        .hidden { display: none !important; }
+
+        /* --- CÓDIGO ADICIONADO: Estilos do Loader --- */
+        .loader-container {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--dark-blue-bg);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            gap: 20px; z-index: 200; transition: opacity 0.5s ease;
+        }
+        .spinner {
+            width: 56px; height: 56px;
+            border: 5px solid #0f3460;
+            border-bottom-color: var(--pink-accent);
+            border-radius: 50%; display: inline-block;
+            animation: rotation 1s linear infinite;
+        }
+        @keyframes rotation { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* --- FIM DO CÓDIGO ADICIONADO --- */
+
+        .container { max-width: 900px; margin: 0 auto; padding: 100px 20px 40px; }
+        #main-content { opacity: 0; transition: opacity 0.5s ease-in; }
+        #main-content.loaded { opacity: 1; }
+
+        .header {
+            position: fixed; top: 0; left: 0; width: 100%;
+            padding: 15px 40px; background: rgba(22, 33, 62, 0.8);
+            backdrop-filter: blur(10px); display: flex; justify-content: space-between;
+            align-items: center; z-index: 100; border-bottom: 1px solid #0f3460;
+        }
+        .nav-links a, .logout-btn {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 16px; text-decoration: none; color: #e0e0e0;
+            border-radius: 8px; font-weight: 500; transition: background-color 0.3s;
+        }
+        .nav-links a:hover { background-color: #1f2c52; }
+        .logout-btn { background-color: #e94560; }
+        .logout-btn:hover { background-color: #c7304a; }
+
+        .section-title {
+            text-align: center; font-size: 2.5rem; color: #e0e0e0;
+            margin-bottom: 1rem;
+        }
+        .section-subtitle {
+            text-align: center; font-size: 1.1rem; color: #a0aec0;
+            max-width: 600px; margin: 0 auto 3rem auto;
+        }
+        .plans-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem; justify-content: center;
+        }
+        .plan-card {
+            background: linear-gradient(145deg, #1f2c52, #16213e);
+            border-radius: 15px; padding: 30px;
+            display: flex; flex-direction: column; text-align: center;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4); border: 1px solid #0f3460;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .plan-card:hover { transform: translateY(-8px); box-shadow: 0 16px 32px rgba(233, 69, 96, 0.2); }
+        
+        .plan-card h3 { font-size: 1.5rem; font-weight: 600; margin-bottom: 8px; color: #e94560 }
+        .plan-card .price { font-size: 2.5rem; font-weight: 700; color: #e0e0e0; margin-bottom: 8px; }
+        .plan-card .price .period { font-size: 1rem; color: #a0aec0; }
+        .plan-card .features-list { list-style: none; padding: 0; margin: 2rem 0; text-align: left; flex-grow: 1; }
+        .plan-card .features-list li { margin-bottom: 1rem; display: flex; align-items: center; gap: 10px; }
+        .plan-card .features-list li i { color: #4caf50; font-size: 1.2rem; }
+
+        .subscribe-btn {
+            width: 100%; padding: 15px; border: none; border-radius: 8px;
+            background-color: #4caf50; color: #fff; display: flex; align-items: center;
+            justify-content: center; gap: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer;
+            transition: background-color 0.3s; text-decoration: none;
+        }
+        .subscribe-btn:hover { background-color: #45a049; }
+
+        /* --- ESTILOS PARA O PLANO INDISPONÍVEL --- */
+        .plan-card.disabled {
+            opacity: 0.6;
+            background: #1f2937;
+            border-color: #4b5563;
+            box-shadow: none;
+        }
+        .plan-card.disabled:hover { transform: none; box-shadow: none; }
+        .disabled-btn {
+            width: 100%; padding: 15px; border: none; border-radius: 8px;
+            background-color: #4b5563;
+            color: #a0aec0;
+            cursor: not-allowed;
+            font-size: 1.1rem; font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div id="loader" class="loader-container">
+        <div class="spinner"></div>
+        <p>A verificar sessão...</p>
+    </div>
+
+    <header class="header hidden">
+        <div class="nav-links">
+            <a href="compras.html"><i class="ph-bold ph-arrow-left"></i> Opções de Acesso</a>
+        </div>
+        <div style="display: flex; align-items: center;">
+            <div id="user-info" class="mr-4"></div>
+            <button class="logout-btn" onclick="logout()">Sair</button>
+        </div>
+    </header>
+
+    <div id="main-content" class="hidden">
+        <div class="container">
+            <h2 class="section-title">Nosso Plano de Assinatura</h2>
+            <p class="section-subtitle">Tenha acesso a todos os recursos e efeitos da Infinit DAW, incluindo futuras atualizações.</p>
+            
+            <div id="plans-container" class="plans-grid">
+                </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-auth-compat.js"></script>
+    <script>
+        console.log("licenca.html: Script principal iniciado."); // LOG 1
+        // ==========================================================
+        // ===== CONFIGURAÇÃO DO FIREBASE (ATUALIZE AQUI!) ==========
+        // ==========================================================
+        const firebaseConfig = {
+        apiKey: "AIzaSyDmf1rOk04ilQgHsoyGy90gg7VUm8O5V0g",
+        authDomain: "meuprimeirosite-70348.firebaseapp.com",
+        projectId: "meuprimeirosite-70348",
+        storageBucket: "meuprimeirosite-70348.firebasestorage.app",
+        messagingSenderId: "297062996692",
+        appId: "1:297062996692:web:2863162f2f7c34ebdaf941",
+        measurementId: "G-BZPEX75PHF"
+    };
+        
+        console.log("licenca.html: Tentando inicializar Firebase."); // LOG 2
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+            console.log("licenca.html: Firebase inicializado."); // LOG 3
+        } else {
+            console.log("licenca.html: Firebase já estava inicializado."); // LOG 4
+        }
+        
+        const auth = firebase.auth();
+        const userInfo = document.getElementById('user-info');
+        const mainContent = document.getElementById('main-content');
+        const loader = document.getElementById('loader');
+        const header = document.querySelector('.header');
+
+        function showPageContent(user) {
+            console.log("licenca.html: showPageContent chamada. Usuário:", user); // LOG 5
+            let userName = auth.currentUser ? (auth.currentUser.displayName || auth.currentUser.email) : 'Desenvolvedor';
+            userInfo.textContent = `Olá, ${userName}!`;
+            
+            loader.style.opacity = '0';
+            setTimeout(() => {
+                loader.classList.add('hidden');
+                header.classList.remove('hidden');
+                mainContent.classList.remove('hidden');
+                mainContent.classList.add('loaded');
+                populatePlans();
+            }, 300);
+        }
+
+        console.log("licenca.html: Configurando onAuthStateChanged."); // LOG 6
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                console.log("licenca.html: onAuthStateChanged - Usuário logado."); // LOG 7
+                showPageContent(user);
+            } else {
+                console.log("licenca.html: onAuthStateChanged - Usuário NÃO logado. Redirecionando para login.html."); // LOG 8
+                window.location.href = "login.html";
+            }
+        });
+        
+        function logout() {
+            console.log("licenca.html: Função logout chamada."); // LOG 9
+            auth.signOut().then(() => {
+                window.location.href = "login.html";
+            }).catch(error => {
+                console.error("licenca.html: Erro ao fazer logout:", error); // LOG 10
+            });
+        }
+
+        // --- LÓGICA DOS PLANOS DE ASSINATURA (ATUALIZADA) ---
+        const SUBSCRIPTION_PLANS = [
+            {
+                name: "Plano Mensal",
+                price: "29,90",
+                period: "/mês",
+                features: [
+                    "Acesso a todos os efeitos",
+                    "Atualizações inclusas",
+                    "Suporte via e-mail",
+                    "Cancele quando quiser"
+                ],
+                // ==========================================================
+                // ===== LINK DE PAGAMENTO DO STRIPE (ATUALIZE AQUI!) =======
+                // ==========================================================
+                paymentLink: "https://buy.stripe.com/bJe7sK9g8gWn2Zwgga6EU00", // <--- SUBSTITUIR PELO SEU LINK GERADO NO STRIPE
+                isAvailable: true // Este plano está disponível
+            },
+            {
+                name: "Plano Anual",
+                price: "249,90",
+                period: "/ano",
+                features: [
+                    "Acesso a todos os efeitos",
+                    "Atualizações inclusas",
+                    "Suporte prioritário",
+                    "Economize 2 meses"
+                ],
+                paymentLink: "https://buy.stripe.com/test_bJe7sK9g8gWn2Zwgga6EU00", 
+                isAvailable: false // Este plano está indisponível
+            }
+        ];
+
+        function populatePlans() {
+            console.log("licenca.html: populatePlans chamada. Gerando planos..."); // LOG 11
+            const container = document.getElementById('plans-container');
+            container.innerHTML = '';
+
+            SUBSCRIPTION_PLANS.forEach(plan => {
+                const featuresHtml = plan.features.map(feature => `<li><i class="ph-fill ph-check-circle"></i>${feature}</li>`).join('');
+
+                // Lógica para criar o botão correto (disponível vs. indisponível)
+                let buttonHtml = '';
+                if (plan.isAvailable) {
+                    buttonHtml = `<a href="${plan.paymentLink}" target="_blank" class="subscribe-btn">Assinar Agora</a>`;
+                } else {
+                    buttonHtml = `<button disabled class="disabled-btn">Indisponível</button>`;
+                }
+                
+                // Lógica para adicionar a classe 'disabled' ao card
+                const cardClass = plan.isAvailable ? 'plan-card' : 'plan-card disabled';
+
+                container.innerHTML += `
+                    <div class="${cardClass}">
+                        <h3>${plan.name}</h3>
+                        <div class="price">R$ ${plan.price}<span class="period">${plan.period}</span></div>
+                        <ul class="features-list">
+                            ${featuresHtml}
+                        </ul>
+                        ${buttonHtml}
+                    </div>
+                `;
+            });
+        }
+        console.log("licenca.html: Fim do script."); // LOG 12
+    </script>
+</body>
+</html>

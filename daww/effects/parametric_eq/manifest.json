@@ -1,0 +1,33 @@
+{
+  "id": "parametric_eq",
+  "name": "EQ Paramétrico Dinâmico",
+  "description": "Ajuste frequências com bandas dinâmicas e uma interface gráfica interativa.",
+  "category": "Filtro",
+  "ui": {
+    "htmlPath": "effects/parametric_eq/parametric_eq.html",
+    "jsPath": "effects/parametric_eq/parametric_eq.js"
+  },
+  "bands": [
+    {
+      "id": "low",
+      "type": "lowshelf",
+      "freq": { "defaultValue": 250, "min": 20, "max": 1000, "step": 1 },
+      "gain": { "defaultValue": 0, "min": -40, "max": 40, "step": 0.1 },
+      "q": { "defaultValue": 1, "min": 0.1, "max": 10, "step": 0.1 }
+    },
+    {
+      "id": "mid",
+      "type": "peaking",
+      "freq": { "defaultValue": 1500, "min": 20, "max": 20000, "step": 1 },
+      "gain": { "defaultValue": 0, "min": -40, "max": 40, "step": 0.1 },
+      "q": { "defaultValue": 1, "min": 0.1, "max": 10, "step": 0.1 }
+    },
+    {
+      "id": "high",
+      "type": "highshelf",
+      "freq": { "defaultValue": 5000, "min": 1000, "max": 20000, "step": 1 },
+      "gain": { "defaultValue": 0, "min": -40, "max": 40, "step": 0.1 },
+      "q": { "defaultValue": 1, "min": 0.1, "max": 10, "step": 0.1 }
+    }
+  ]
+}

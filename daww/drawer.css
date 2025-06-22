@@ -1,0 +1,49 @@
+/* drawer.css */
+#bottom-drawer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 300px; /* Altura da gaveta quando aberta */
+    z-index: 50; /* Garante que fique acima da timeline */
+
+    background-color: #d1d5db; /* Cor de fundo clara (cinza-300) */
+    color: #1f2937; /* Cor do texto escura */
+    border-top: 1px solid #9ca3af; /* Borda superior */
+
+    /* Animação de deslize */
+    transition: transform 0.3s ease-in-out;
+
+    /* Estado inicial (fechada) */
+    transform: translateY(calc(100% - 24px)); /* Mostra apenas a alça de 24px */
+}
+
+#bottom-drawer.open {
+    /* Estado "aberta" */
+    transform: translateY(0);
+}
+
+#drawer-handle {
+    width: 100%;
+    height: 24px;
+    background-color: #9ca3af; /* Cor da alça (cinza-400) */
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Linha visual na alça para indicar que é clicável/arrastável */
+#drawer-handle::before {
+    content: '';
+    width: 50px;
+    height: 5px;
+    background-color: #e5e7eb; /* Cor da linha (cinza-200) */
+    border-radius: 3px;
+}
+
+#drawer-content {
+    padding: 16px;
+    height: calc(100% - 24px); /* Ocupa o resto do espaço da gaveta */
+    overflow-y: auto; /* Permite scroll se o conteúdo for maior */
+}

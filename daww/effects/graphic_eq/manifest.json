@@ -1,0 +1,22 @@
+{
+  "id": "graphic_eq",
+  "name": "Equalizador Gráfico (10 Bandas)",
+  "description": "Atenue ou realce 10 faixas de frequência fixas com sliders verticais clássicos.",
+  "category": "Filtro",
+  "ui": {
+    "htmlPath": "effects/graphic_eq/graphic_eq.html",
+    "jsPath": "effects/graphic_eq/graphic_eq.js"
+  },
+  "parameters": [
+    { "id": "gain_32hz", "name": "32 Hz", "type": "slider", "min": -18, "max": 18, "step": 0.1, "defaultValue": 0 },
+    { "id": "gain_64hz", "name": "64 Hz", "type": "slider", "min": -18, "max": 18, "step": 0.1, "defaultValue": 0 },
+    { "id": "gain_125hz", "name": "125 Hz", "type": "slider", "min": -18, "max": 18, "step": 0.1, "defaultValue": 0 },
+    { "id": "gain_250hz", "name": "250 Hz", "type": "slider", "min": -18, "max": 18, "step": 0.1, "defaultValue": 0 },
+    { "id": "gain_500hz", "name": "500 Hz", "type": "slider", "min": -18, "max": 18, "step": 0.1, "defaultValue": 0 },
+    { "id": "gain_1k", "name": "1 kHz", "type": "slider", "min": -18, "max": 18, "step": 0.1, "defaultValue": 0 },
+    { "id": "gain_2k", "name": "2 kHz", "type": "slider", "min": -18, "max": 18, "step": 0.1, "defaultValue": 0 },
+    { "id": "gain_4k", "name": "4 kHz", "type": "slider", "min": -18, "max": 18, "step": 0.1, "defaultValue": 0 },
+    { "id": "gain_8k", "name": "8 kHz", "type": "slider", "min": -18, "max": 18, "step": 0.1, "defaultValue": 0 },
+    { "id": "gain_16k", "name": "16 kHz", "type": "slider", "min": -18, "max": 18, "step": 0.1, "defaultValue": 0 }
+  ]
+}

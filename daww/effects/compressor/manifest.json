@@ -1,0 +1,17 @@
+{
+  "id": "compressor",
+  "name": "Compressor Dinâmico",
+  "description": "Reduz a faixa dinâmica, diminuindo os picos de volume mais altos.",
+  "category": "Dinâmica",
+  "ui": {
+    "htmlPath": "effects/compressor/compressor.html",
+    "jsPath": "effects/compressor/compressor.js"
+  },
+  "parameters": [
+    { "id": "threshold", "name": "Threshold (dB)", "type": "slider", "min": -100, "max": 0, "step": 1, "defaultValue": -24 },
+    { "id": "ratio", "name": "Ratio", "type": "slider", "min": 1, "max": 20, "step": 0.1, "defaultValue": 12 },
+    { "id": "knee", "name": "Knee", "type": "slider", "min": 0, "max": 40, "step": 1, "defaultValue": 30 },
+    { "id": "attack", "name": "Attack (s)", "type": "slider", "min": 0, "max": 1, "step": 0.001, "defaultValue": 0.003 },
+    { "id": "release", "name": "Release (s)", "type": "slider", "min": 0.01, "max": 1, "step": 0.001, "defaultValue": 0.25 }
+  ]
+}

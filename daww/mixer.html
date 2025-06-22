@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Mixer - Infinit DAW</title>
+    
+    <meta http-equiv="Content-Security-Policy" content="default-src * 'self' 'unsafe-inline' 'unsafe-eval' data: gap: content: https://ssl.gstatic.com; style-src * 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src * 'self' 'unsafe-inline' 'unsafe-eval';">
+    
+    <link rel="stylesheet" href="css/mixer.css">
+
+    </head>
+<body>
+
+    <header class="mixer-header">
+        <h1>Mesa de Mixagem</h1>
+        <a href="index.html" class="back-to-daw-btn">Voltar para a DAW</a>
+    </header>
+
+    <main id="mixer-container" class="mixer-main-container">
+        <div class="channel-strip master">
+            <div class="fader-container">
+                <input type="range" min="0" max="1.5" step="0.01" value="1" class="volume-fader" id="master-fader">
+            </div>
+            <div class="track-name">MASTER</div>
+        </div>
+    </main>
+
+    <script src="js/mixer.js"></script>
+
+</body>
+</html>

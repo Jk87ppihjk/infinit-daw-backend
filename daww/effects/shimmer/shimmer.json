@@ -1,0 +1,17 @@
+{
+  "id": "ethereal_shimmer",
+  "name": "Ethereal Shimmer",
+  "description": "Um reverb algorítmico que gera uma cauda cintilante e etérea, adicionando texturas celestiais e profundidade ao seu som.",
+  "category": "Ambiente",
+  "ui": {
+    "htmlPath": "effects/shimmer/ui.html",
+    "jsPath": "effects/shimmer/ui.js"
+  },
+  "parameters": [
+    { "id": "mix", "name": "Mix (Wet/Dry)", "type": "slider", "min": 0, "max": 1, "step": 0.01, "defaultValue": 0.5 },
+    { "id": "decay", "name": "Decay (s)", "type": "slider", "min": 1, "max": 15, "step": 0.1, "defaultValue": 5 },
+    { "id": "shimmer_amount", "name": "Shimmer", "type": "slider", "min": 0, "max": 1, "step": 0.01, "defaultValue": 0.6 },
+    { "id": "shimmer_pitch", "name": "Pitch (Oitavas)", "type": "select", "options": ["+1 Oitava", "+2 Oitavas", "+5 Semitons"], "defaultValue": "+1 Oitava" },
+    { "id": "tone", "name": "Tone", "type": "slider", "min": 1000, "max": 15000, "step": 100, "defaultValue": 8000 }
+  ]
+}

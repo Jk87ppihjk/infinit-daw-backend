@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinit DAW - Portal de Acesso</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Estilos base para uma experiência bonita */
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow: hidden; /* Evita scroll desnecessário */
+        }
+        .main-container-wrapper {
+            max-width: 900px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 30px;
+            background: rgba(22, 33, 62, 0.9);
+            border-radius: 20px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(15, 52, 96, 0.5);
+            padding: 40px;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Loader global */
+        .loader-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(26, 26, 46, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            z-index: 200;
+            color: #e0e0e0;
+            opacity: 1;
+            transition: opacity 0.5s ease;
+        }
+        .loader-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 6px solid #0f3460;
+            border-bottom-color: #e94560;
+            border-radius: 50%;
+            display: inline-block;
+            animation: rotation 1s linear infinite;
+        }
+        @keyframes rotation {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Header (opcional, mostra user info) */
+        .header {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            z-index: 20;
+        }
+        .header .logout-btn {
+            background-color: #e94560;
+            color: #fff;
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: background-color 0.3s;
+            cursor: pointer;
+            border: none;
+        }
+        .header .logout-btn:hover {
+            background-color: #c7304a;
+        }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <!-- Loader sempre visível no início -->
+    <div id="loader" class="loader-overlay">
+        <div class="spinner"></div>
+        <p class="text-lg font-medium text-center">Verificando seu nível de acesso...</p>
+        <p class="text-sm text-gray-400 text-center mt-2">Isso deve levar apenas alguns segundos.</p>
+    </div>
+
+    <header id="app-header" class="header hidden">
+        <span id="user-info" class="text-sm font-semibold text-gray-300"></span>
+        <button class="logout-btn" onclick="logout()">Sair</button>
+    </header>
+
+    <div id="main-content" class="main-container-wrapper hidden">
+        <h1 class="text-5xl font-bold text-center text-[#e94560] drop-shadow-lg mb-4">
+            Bem-vindo(a) à Infinit DAW
+        </h1>
+        <p class="text-lg text-center text-gray-300 max-w-2xl mb-8">
+            Sua jornada criativa começa aqui. Escolha como deseja prosseguir com sua produção musical.
+        </p>
+
+        <div id="options-container" class="flex flex-col md:flex-row gap-6 w-full max-w-md">
+            <!-- Opções para usuários FREE -->
+            <a href="index.html" class="flex-1 bg-[#0f3460] hover:bg-[#1a4a8a] transition-all duration-300 transform hover:scale-105
+                      text-white font-semibold py-4 px-6 rounded-xl shadow-lg flex items-center justify-center gap-3 text-lg">
+                <i class="ph-bold ph-music-note text-2xl"></i> Testar Gratuitamente
+            </a>
+            <a href="licenca.html" class="flex-1 bg-[#4caf50] hover:bg-[#45a049] transition-all duration-300 transform hover:scale-105
+                      text-white font-semibold py-4 px-6 rounded-xl shadow-lg flex items-center justify-center gap-3 text-lg">
+                <i class="ph-bold ph-crown simple-scale-hover text-2xl"></i> Assinar um Plano
+            </a>
+        </div>
+        
+        <!-- Conteúdo específico para modo DEV, se aplicável -->
+        <a id="dev-access-link" href="index.html?dev=true" 
+           class="mt-6 text-gray-500 hover:text-gray-300 transition-colors text-sm underline hidden">
+            Acessar DAW como Desenvolvedor
+        </a>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.7/firebase-auth-compat.js"></script>
+    <script>
+        // ==========================================================
+        // ===== CONFIGURAÇÃO DO FIREBASE (ATUALIZE AQUI!) ==========
+        // ==========================================================
+       const firebaseConfig = {
+        apiKey: "AIzaSyDmf1rOk04ilQgHsoyGy90gg7VUm8O5V0g",
+        authDomain: "meuprimeirosite-70348.firebaseapp.com",
+        projectId: "meuprimeirosite-70348",
+        storageBucket: "meuprimeirosite-70348.firebasestorage.app",
+        messagingSenderId: "297062996692",
+        appId: "1:297062996692:web:2863162f2f7c34ebdaf941",
+        measurementId: "G-BZPEX75PHF"
+    };
+        
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        
+        const auth = firebase.auth();
+        const loader = document.getElementById('loader');
+        const mainContent = document.getElementById('main-content');
+        const appHeader = document.getElementById('app-header');
+        const userInfoSpan = document.getElementById('user-info');
+        const devAccessLink = document.getElementById('dev-access-link');
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const isDevMode = urlParams.get('dev') === 'true';
+        
+        // ==========================================================
+        // ===== URL DO SEU BACKEND RENDER (ATUALIZE AQUI!) =========
+        // ==========================================================
+        const urlDoServidor = 'https://infinit-daw-backend.onrender.com'; // <-- COLOQUE SUA URL AQUI
+
+        // Função para verificar o nível de assinatura no backend
+        async function verificarAssinaturaDoUsuario(user) {
+            if (!user || !user.email) {
+                return 'free';
+            }
+            try {
+                const response = await fetch(`${urlDoServidor}/verificar-assinatura`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userEmail: user.email })
+                });
+                if (!response.ok) {
+                    console.error('Erro na resposta do servidor de assinatura. Assumindo acesso "free".');
+                    return 'free';
+                }
+                const data = await response.json();
+                return data.accessLevel;
+            } catch (error) {
+                console.error('Não foi possível conectar ao servidor para verificar a assinatura.', error);
+                return 'free';
+            }
+        }
+
+        // Função principal para lidar com o redirecionamento/exibição
+        async function handleUserAccessLevel(user) {
+            let accessLevel = 'free';
+            const displayName = user ? (user.displayName || user.email) : 'Visitante';
+            userInfoSpan.textContent = `Olá, ${displayName}!`;
+            appHeader.classList.remove('hidden'); // Mostra o header com nome/logout
+
+            if (isDevMode) {
+                console.log("Portal de Acesso: Modo DEV ativado. Redirecionando para DAW com acesso total.");
+                devAccessLink.classList.remove('hidden'); // Mostra o link para o modo dev
+                window.location.href = 'index.html?dev=true'; // Redireciona imediatamente para DAW em modo DEV
+                return;
+            }
+
+            // Verifica o nível de acesso real do usuário
+            accessLevel = await verificarAssinaturaDoUsuario(user);
+            console.log(`Portal de Acesso: Nível de acesso verificado: ${accessLevel}`);
+
+            if (accessLevel === 'producer' || accessLevel === 'lifetime') {
+                console.log("Portal de Acesso: Usuário 'producer' ou 'lifetime'. Redirecionando para a DAW.");
+                loader.querySelector('p').textContent = `Bem-vindo(a) de volta, ${displayName}! Redirecionando para sua DAW...`;
+                // Pequeno atraso para a mensagem ser lida antes de redirecionar
+                setTimeout(() => {
+                    window.location.href = 'index.html'; // Redireciona diretamente para a DAW
+                }, 1500); 
+            } else {
+                console.log("Portal de Acesso: Usuário 'free'. Mostrando opções de acesso.");
+                // Esconde o loader e mostra o conteúdo principal
+                loader.classList.add('hidden');
+                mainContent.classList.remove('hidden');
+            }
+        }
+
+        // Listener de autenticação Firebase
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                console.log("Portal de Acesso: onAuthStateChanged - Usuário logado.");
+                handleUserAccessLevel(user);
+            } else {
+                console.log("Portal de Acesso: onAuthStateChanged - Usuário NÃO logado. Redirecionando para login.html.");
+                window.location.href = "login.html"; // Redireciona para login se não estiver logado
+            }
+        });
+        
+        // Função de Logout
+        function logout() {
+            auth.signOut().then(() => {
+                console.log("Portal de Acesso: Logout bem-sucedido.");
+                window.location.href = "login.html";
+            }).catch((error) => {
+                console.error("Portal de Acesso: Erro ao fazer logout:", error);
+                alert("Ocorreu um erro ao sair.");
+            });
+        }
+    </script>
+</body>
+</html>
